@@ -18,19 +18,28 @@ export default async (ctx: MenuContext<StatsConfig>): Promise<MenuTemplate> => {
 
   return [
     {
-      label: t('plugins.music-stats-dashboard.menu.title', 'Music Stats Dashboard'),
+      label: t(
+        'plugins.music-stats-dashboard.menu.title',
+        'Music Stats Dashboard',
+      ),
       click: () => {
         ctx.window.webContents.send('music-stats:show-dashboard');
       },
       submenu: [
         {
-          label: t('plugins.music-stats-dashboard.menu.dashboard', 'View Dashboard'),
+          label: t(
+            'plugins.music-stats-dashboard.menu.dashboard',
+            'View Dashboard',
+          ),
           click: () => {
             ctx.window.webContents.send('music-stats:show-dashboard');
           },
         },
         {
-          label: t('plugins.music-stats-dashboard.menu.wrapped', 'View Wrapped'),
+          label: t(
+            'plugins.music-stats-dashboard.menu.wrapped',
+            'View Wrapped',
+          ),
           click: () => {
             ctx.window.webContents.send('music-stats:show-wrapped');
           },
@@ -46,7 +55,9 @@ export default async (ctx: MenuContext<StatsConfig>): Promise<MenuTemplate> => {
               type: 'checkbox',
               checked: !!config.cloudSyncEnabled,
               click: async () => {
-                await ctx.setConfig({ cloudSyncEnabled: !config.cloudSyncEnabled });
+                await ctx.setConfig({
+                  cloudSyncEnabled: !config.cloudSyncEnabled,
+                });
                 ctx.refresh?.();
               },
             },
@@ -85,7 +96,9 @@ export default async (ctx: MenuContext<StatsConfig>): Promise<MenuTemplate> => {
                 );
 
                 if (clientSecret && clientSecret.trim()) {
-                  await ctx.setConfig({ cloudSyncClientSecret: clientSecret.trim() });
+                  await ctx.setConfig({
+                    cloudSyncClientSecret: clientSecret.trim(),
+                  });
                   ctx.refresh?.();
                 }
               },
