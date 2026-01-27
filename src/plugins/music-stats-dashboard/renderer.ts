@@ -1,5 +1,4 @@
 import type { RendererContext } from '@/types/contexts';
-import { getSongInfo as getDetailedSongInfo } from '@/providers/song-info-front';
 
 import type { CurrentPlayback, PlayRecord, StatsData } from './types';
 
@@ -14,7 +13,8 @@ let skipClickHandler: ((event: Event) => void) | null = null;
 const artistImageCache = new Map<string, string>();
 const artistImagePending = new Map<string, Promise<string | null>>();
 
-const isVideoId = (id?: string | null) => !!id && /^[a-zA-Z0-9_-]{11}$/.test(id);
+const isVideoId = (id?: string | null) =>
+  !!id && /^[a-zA-Z0-9_-]{11}$/.test(id);
 
 const OVERLAY_LOCK_CLASS = 'music-stats-overlay-open';
 
@@ -68,7 +68,11 @@ function startTracking() {
   // Watch for title changes (song info appears here)
   const titleElement = document.querySelector('title');
   if (titleElement) {
-    songObserver.observe(titleElement, { childList: true, characterData: true, subtree: true });
+    songObserver.observe(titleElement, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
   }
 
   // Also poll every 2 seconds as backup
@@ -106,7 +110,8 @@ function checkForSongChange() {
   // Check if song changed
   if (
     currentPlayback &&
-    (currentPlayback.songId !== songInfo.songId || currentPlayback.songTitle !== songInfo.songTitle)
+    (currentPlayback.songId !== songInfo.songId ||
+      currentPlayback.songTitle !== songInfo.songTitle)
   ) {
     // Song changed - save the previous song's play record
     savePreviousPlay();
@@ -120,9 +125,13 @@ function checkForSongChange() {
       songTitle: songInfo.songTitle,
       artistId: songInfo.artistId,
       artistName: songInfo.artistName,
-      artistImageUrl: getCachedArtistImage(songInfo.artistId, songInfo.artistUrl, songInfo.artistName) || undefined,
+      artistImageUrl:
+        getCachedArtistImage(
+          songInfo.artistId,
+          songInfo.artistUrl,
+          songInfo.artistName,
+        ) || undefined,
       albumName: songInfo.albumName,
-      genre: songInfo.genre,
       thumbnailUrl: songInfo.thumbnailUrl,
       totalDuration: songInfo.totalDuration,
       startTime: Date.now(),
@@ -166,7 +175,8 @@ function savePreviousPlay(completed = false) {
     userSkipRequested &&
     !completed &&
     currentPlayback.totalDuration > 0 &&
-    currentPlayback.accumulatedTime < currentPlayback.totalDuration * skipThreshold;
+    currentPlayback.accumulatedTime <
+      currentPlayback.totalDuration * skipThreshold;
 
   const record: PlayRecord = {
     songId: currentPlayback.songId,
@@ -200,21 +210,24 @@ function getSongInfo(): {
   totalDuration: number;
 } | null {
   try {
-    const detailedInfo = getDetailedSongInfo();
     // Get song title
-    const titleElement = document.querySelector('ytmusic-player-bar .title') as HTMLElement;
+    const titleElement = document.querySelector(
+      'ytmusic-player-bar .title',
+    ) as HTMLElement;
     const songTitle = titleElement?.textContent?.trim();
     if (!songTitle) return null;
 
     // Get artist
-    const artistElement = document.querySelector('ytmusic-player-bar .byline a') as HTMLElement;
+    const artistElement = document.querySelector(
+      'ytmusic-player-bar .byline a',
+    ) as HTMLElement;
     const artistName = artistElement?.textContent?.trim() || 'Unknown Artist';
 
     // Get video ID (use as song ID)
     const videoElement = document.querySelector('video');
     const videoSrc = videoElement?.src;
     const videoIdMatch = videoSrc?.match(/[?&]v=([^&]+)/);
-    const playerBar = document.querySelector('ytmusic-player-bar') as HTMLElement | null;
+    const playerBar = document.querySelector('ytmusic-player-bar');
     const attrId =
       playerBar?.getAttribute('video-id') ||
       playerBar?.getAttribute('videoId') ||
@@ -226,7 +239,8 @@ function getSongInfo(): {
     const artistIdMatch = artistLink?.match(/channel\/([^/?]+)/);
     const browseMatch = artistLink?.match(/browse\/([^/?]+)/);
     const rawArtistId = artistIdMatch?.[1] || browseMatch?.[1];
-    const artistId = rawArtistId && rawArtistId.startsWith('UC') ? rawArtistId : artistName;
+    const artistId =
+      rawArtistId && rawArtistId.startsWith('UC') ? rawArtistId : artistName;
     const artistUrl = artistLink
       ? artistLink.startsWith('http')
         ? artistLink
@@ -234,13 +248,15 @@ function getSongInfo(): {
       : undefined;
 
     // Get album
-    const albumElement = document.querySelector('ytmusic-player-bar .subtitle a[href*="/browse/"]') as HTMLElement;
+    const albumElement = document.querySelector(
+      'ytmusic-player-bar .subtitle a[href*="/browse/"]',
+    ) as HTMLElement;
     const albumName = albumElement?.textContent?.trim();
 
     // Get thumbnail
-    const thumbElement = document.querySelector(
-      'ytmusic-player-bar img#img, ytmusic-player-bar img, ytmusic-player-bar .thumbnail img'
-    ) as HTMLImageElement | null;
+    const thumbElement = document.querySelector<HTMLImageElement>(
+      'ytmusic-player-bar img#img, ytmusic-player-bar img, ytmusic-player-bar .thumbnail img',
+    );
     const thumbnailUrl =
       thumbElement?.src ||
       (songId && /^[a-zA-Z0-9_-]{11}$/.test(songId)
@@ -435,7 +451,9 @@ function createWrappedView(stats: StatsData) {
     overlay.appendChild(container);
     overlay.appendChild(navigation);
 
-    const progressFill = container.querySelector<HTMLElement>('.wrapped-progress-fill');
+    const progressFill = container.querySelector<HTMLElement>(
+      '.wrapped-progress-fill',
+    );
     const progressTarget = progressFill?.dataset.progress;
     if (progressFill && progressTarget) {
       progressFill.style.setProperty('--progress', '0');
@@ -444,7 +462,8 @@ function createWrappedView(stats: StatsData) {
       });
     }
 
-    const playButtons = container.querySelectorAll<HTMLButtonElement>('[data-play-id]');
+    const playButtons =
+      container.querySelectorAll<HTMLButtonElement>('[data-play-id]');
     playButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.playId;
@@ -452,17 +471,28 @@ function createWrappedView(stats: StatsData) {
       });
     });
 
-    const autoPlayTarget = container.querySelector<HTMLElement>('[data-auto-play]');
+    const autoPlayTarget =
+      container.querySelector<HTMLElement>('[data-auto-play]');
     const autoPlayId = autoPlayTarget?.getAttribute('data-auto-play');
     if (isVideoId(autoPlayId)) playSongById(autoPlayId, true);
 
-    const obsessions = container.querySelector<HTMLElement>('.wrapped-obsessions');
+    const obsessions = container.querySelector<HTMLElement>(
+      '.wrapped-obsessions',
+    );
     if (obsessions) {
       const totalMonths = Number(obsessions.dataset.totalMonths || 0);
-      const flips = Array.from(container.querySelectorAll<HTMLElement>('.wrapped-flip'));
-      const prevBtn = container.querySelector<HTMLButtonElement>('.obsessions-nav.prev');
-      const nextBtn = container.querySelector<HTMLButtonElement>('.obsessions-nav.next');
-      const indicator = container.querySelector<HTMLElement>('.obsessions-indicator');
+      const flips = Array.from(
+        container.querySelectorAll<HTMLElement>('.wrapped-flip'),
+      );
+      const prevBtn = container.querySelector<HTMLButtonElement>(
+        '.obsessions-nav.prev',
+      );
+      const nextBtn = container.querySelector<HTMLButtonElement>(
+        '.obsessions-nav.next',
+      );
+      const indicator = container.querySelector<HTMLElement>(
+        '.obsessions-indicator',
+      );
 
       const setActiveMonth = (index: number) => {
         const clamped = Math.max(0, Math.min(totalMonths - 1, index));
@@ -474,7 +504,8 @@ function createWrappedView(stats: StatsData) {
         if (nextBtn) nextBtn.disabled = clamped >= totalMonths - 1;
         if (indicator) {
           const activeFlip = flips[clamped];
-          const label = activeFlip?.querySelector('.flip-front')?.textContent?.trim() || '';
+          const label =
+            activeFlip?.querySelector('.flip-front')?.textContent?.trim() || '';
           indicator.textContent = label;
         }
       };
@@ -519,12 +550,19 @@ function createWrappedSlides(stats: StatsData): string[] {
 
   const listeningClock = stats.listeningClock || new Array(24).fill(0);
   const peakHour = listeningClock.indexOf(Math.max(...listeningClock));
-  const chronotype = peakHour >= 22 || peakHour <= 4 ? 'Night Owl' : peakHour <= 10 ? 'Early Bird' : 'Day Groover';
+  const chronotype =
+    peakHour >= 22 || peakHour <= 4
+      ? 'Night Owl'
+      : peakHour <= 10
+        ? 'Early Bird'
+        : 'Day Groover';
 
   const totalPlays = Math.max(1, stats.totalSongs);
   const uniqueSongs = new Set(stats.topSongs.map((s) => s.id)).size;
   const varietyScore = Math.round((uniqueSongs / totalPlays) * 100);
-  const topFivePlays = stats.topArtists.slice(0, 5).reduce((sum, a) => sum + a.plays, 0);
+  const topFivePlays = stats.topArtists
+    .slice(0, 5)
+    .reduce((sum, a) => sum + a.plays, 0);
   const obsessionScore = Math.round((topFivePlays / totalPlays) * 100);
   const topArtistName = stats.topArtists[0]?.name ?? 'your favorites';
   const archetype =
@@ -602,9 +640,11 @@ function createWrappedSlides(stats: StatsData): string[] {
       <div class="wrapped-aura-text">
         <div class="aura-title">You are a ${archetype}.</div>
         <div class="aura-detail">
-          ${archetype === 'Trailblazer' || archetype === 'Wanderer'
-            ? `You jumped across ${uniqueSongs} unique songs. Always hunting something new.`
-            : `You replay your favorites a lot. ${obsessionScore}% of your plays came from your top artists led by ${escapeHtml(topArtistName)}.`}
+          ${
+            archetype === 'Trailblazer' || archetype === 'Wanderer'
+              ? `You jumped across ${uniqueSongs} unique songs. Always hunting something new.`
+              : `You replay your favorites a lot. ${obsessionScore}% of your plays came from your top artists led by ${escapeHtml(topArtistName)}.`
+          }
         </div>
       </div>
     </div>
@@ -621,7 +661,10 @@ function createWrappedSlides(stats: StatsData): string[] {
           ${monthly
             .map((m, idx) => {
               const [yy, mm] = m.yearMonth.split('-').map(Number);
-              const label = new Date(yy, mm - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+              const label = new Date(yy, mm - 1, 1).toLocaleDateString(
+                'en-US',
+                { month: 'long', year: 'numeric' },
+              );
               return `
             <div class="wrapped-flip" data-month-index="${idx}" data-year-month="${m.yearMonth}">
               <div class="flip-front">${label}</div>
@@ -678,14 +721,16 @@ function createWrappedSlides(stats: StatsData): string[] {
             <div class="artist-card">
               <div class="artist-rank">#${idx + 1}</div>
               <div class="artist-avatar">
-                ${artist.imageUrl || artistImageFallback.get(artist.name)
-                  ? `<img src="${artist.imageUrl || artistImageFallback.get(artist.name)}" alt="${escapeHtml(artist.name)}" />`
-                  : `<span>${escapeHtml(artist.name.charAt(0))}</span>`}
+                ${
+                  artist.imageUrl || artistImageFallback.get(artist.name)
+                    ? `<img src="${artist.imageUrl || artistImageFallback.get(artist.name)}" alt="${escapeHtml(artist.name)}" />`
+                    : `<span>${escapeHtml(artist.name.charAt(0))}</span>`
+                }
               </div>
               <div class="artist-name">${escapeHtml(artist.name)}</div>
               <div class="artist-minutes">${artist.minutes} min</div>
             </div>
-          `
+          `,
           )
           .join('')}
       </div>
@@ -703,9 +748,14 @@ function createWrappedSlides(stats: StatsData): string[] {
             <div class="song-row">
               <div class="song-rank">#${idx + 2}</div>
               <div class="song-art">
-                ${song.imageUrl || (isVideoId(song.id) ? `https://i.ytimg.com/vi/${song.id}/hqdefault.jpg` : '')
-                  ? `<img src="${song.imageUrl || `https://i.ytimg.com/vi/${song.id}/hqdefault.jpg`}" alt="${escapeHtml(song.title)}" />`
-                  : `<span>${escapeHtml(song.title.charAt(0))}</span>`}
+                ${
+                  song.imageUrl ||
+                  (isVideoId(song.id)
+                    ? `https://i.ytimg.com/vi/${song.id}/hqdefault.jpg`
+                    : '')
+                    ? `<img src="${song.imageUrl || `https://i.ytimg.com/vi/${song.id}/hqdefault.jpg`}" alt="${escapeHtml(song.title)}" />`
+                    : `<span>${escapeHtml(song.title.charAt(0))}</span>`
+                }
               </div>
               <div class="song-meta">
                 <div class="song-title">${escapeHtml(song.title)}</div>
@@ -716,7 +766,7 @@ function createWrappedSlides(stats: StatsData): string[] {
               </div>
               ${isVideoId(song.id) ? `<button class="song-play" data-play-id="${song.id}">Play</button>` : ''}
             </div>
-          `
+          `,
           )
           .join('')}
       </div>
@@ -727,9 +777,11 @@ function createWrappedSlides(stats: StatsData): string[] {
   slides.push(`
     <div class="wrapped-slide wrapped-anthem-final" data-auto-play="${topSong?.id || ''}">
       <div class="anthem-art">
-        ${topSong
-          ? `<img src="${topSong.imageUrl || (isVideoId(topSong.id) ? `https://i.ytimg.com/vi/${topSong.id}/maxresdefault.jpg` : '')}" onerror="if (!this.dataset.fallback) { this.dataset.fallback = '1'; this.src = 'https://i.ytimg.com/vi/${topSong.id}/hqdefault.jpg'; }" alt="${escapeHtml(topSong.title)}" />`
-          : `<div class="anthem-placeholder"></div>`}
+        ${
+          topSong
+            ? `<img src="${topSong.imageUrl || (isVideoId(topSong.id) ? `https://i.ytimg.com/vi/${topSong.id}/maxresdefault.jpg` : '')}" onerror="if (!this.dataset.fallback) { this.dataset.fallback = '1'; this.src = 'https://i.ytimg.com/vi/${topSong.id}/hqdefault.jpg'; }" alt="${escapeHtml(topSong.title)}" />`
+            : '<div class="anthem-placeholder"></div>'
+        }
       </div>
       <div class="anthem-content">
         <div class="anthem-label">Your #1 Song</div>
@@ -764,7 +816,7 @@ function createDashboardView(stats: StatsData) {
         <button class="dashboard-close">×</button>
       </div>
 
-      <div class="dashboard-grid">
+      <div class="dashboard-summary">
         <div class="dashboard-card">
           <div class="card-label">Total Minutes</div>
           <div class="card-value">${formatNumber(stats.totalMinutes)}</div>
@@ -791,7 +843,9 @@ function createDashboardView(stats: StatsData) {
         `
             : ''
         }
+      </div>
 
+      <div class="dashboard-grid">
         <div class="dashboard-card wide">
           <h3 class="card-title">Top 5 Songs</h3>
           <div class="dashboard-list">
@@ -801,9 +855,11 @@ function createDashboardView(stats: StatsData) {
               <div class="list-item">
                 <div class="list-left">
                   <div class="list-thumb">
-                    ${song.imageUrl
-                      ? `<img src="${song.imageUrl}" alt="${escapeHtml(song.title)}" />`
-                      : `<span>${escapeHtml(song.title.charAt(0))}</span>`}
+                    ${
+                      song.imageUrl
+                        ? `<img src="${song.imageUrl}" alt="${escapeHtml(song.title)}" />`
+                        : `<span>${escapeHtml(song.title.charAt(0))}</span>`
+                    }
                   </div>
                   <div class="list-content">
                     <div class="list-title">${escapeHtml(song.title)}</div>
@@ -812,7 +868,7 @@ function createDashboardView(stats: StatsData) {
                 </div>
                 <div class="list-stat">${song.plays} plays</div>
               </div>
-            `
+            `,
               )
               .join('')}
           </div>
@@ -827,9 +883,11 @@ function createDashboardView(stats: StatsData) {
               <div class="list-item">
                 <div class="list-left">
                   <div class="list-thumb">
-                    ${artist.imageUrl
-                      ? `<img src="${artist.imageUrl}" alt="${escapeHtml(artist.name)}" />`
-                      : `<span>${escapeHtml(artist.name.charAt(0))}</span>`}
+                    ${
+                      artist.imageUrl
+                        ? `<img src="${artist.imageUrl}" alt="${escapeHtml(artist.name)}" />`
+                        : `<span>${escapeHtml(artist.name.charAt(0))}</span>`
+                    }
                   </div>
                   <div class="list-content">
                     <div class="list-title">${escapeHtml(artist.name)}</div>
@@ -837,7 +895,7 @@ function createDashboardView(stats: StatsData) {
                 </div>
                 <div class="list-stat">${artist.minutes} min</div>
               </div>
-            `
+            `,
               )
               .join('')}
           </div>
@@ -863,9 +921,11 @@ function createDashboardView(stats: StatsData) {
               <div class="list-item">
                 <div class="list-left">
                   <div class="list-thumb">
-                    ${song.imageUrl
-                      ? `<img src="${song.imageUrl}" alt="${escapeHtml(song.title)}" />`
-                      : `<span>${escapeHtml(song.title.charAt(0))}</span>`}
+                    ${
+                      song.imageUrl
+                        ? `<img src="${song.imageUrl}" alt="${escapeHtml(song.title)}" />`
+                        : `<span>${escapeHtml(song.title.charAt(0))}</span>`
+                    }
                   </div>
                   <div class="list-content">
                     <div class="list-title">${escapeHtml(song.title)}</div>
@@ -874,7 +934,7 @@ function createDashboardView(stats: StatsData) {
                 </div>
                 <div class="list-stat">${song.skips} skips / ${song.plays} plays</div>
               </div>
-            `
+            `,
               )
               .join('')}
           </div>
@@ -916,7 +976,9 @@ function createDashboardView(stats: StatsData) {
     };
 
     svg.addEventListener('mousemove', (event) => {
-      const target = (event.target as Element | null)?.closest<SVGCircleElement>('.listening-dot');
+      const target = (
+        event.target as Element | null
+      )?.closest<SVGCircleElement>('.listening-dot');
       if (!target) return;
       showTooltip(target);
     });
@@ -929,13 +991,13 @@ function createDashboardView(stats: StatsData) {
 
 function createListeningClock(hourlyData: number[]): string {
   if (!hourlyData || hourlyData.length !== 24) {
-    return `<div class="listening-empty">No activity yet</div>`;
+    return '<div class="listening-empty">No activity yet</div>';
   }
 
   const maxMinutes = Math.max(...hourlyData, 1);
   const hasActivity = hourlyData.some((m) => m > 0);
   if (!hasActivity) {
-    return `<div class="listening-empty">No activity yet</div>`;
+    return '<div class="listening-empty">No activity yet</div>';
   }
 
   const width = 1200;
@@ -954,9 +1016,9 @@ function createListeningClock(hourlyData: number[]): string {
     .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
     .join(' ');
 
-  const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(2)} ${
-    (height - padding).toFixed(2)
-  } L ${points[0].x.toFixed(2)} ${(height - padding).toFixed(2)} Z`;
+  const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(2)} ${(
+    height - padding
+  ).toFixed(2)} L ${points[0].x.toFixed(2)} ${(height - padding).toFixed(2)} Z`;
 
   return `
     <div class="listening-chart">
@@ -1009,7 +1071,11 @@ function formatNumber(num: number): string {
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 function escapeHtml(str: string): string {
@@ -1037,7 +1103,9 @@ function showNotification(message: string) {
 function setupSkipTracking() {
   const isSkipButton = (target: EventTarget | null) => {
     if (!(target instanceof Element)) return false;
-    return !!target.closest('.next-button.ytmusic-player-bar, .previous-button.ytmusic-player-bar');
+    return !!target.closest(
+      '.next-button.ytmusic-player-bar, .previous-button.ytmusic-player-bar',
+    );
   };
 
   skipClickHandler = (event: Event) => {
@@ -1092,8 +1160,13 @@ function playSongById(videoId: string, auto = false) {
   ipc.send('peard:next-video');
 }
 
-function getCachedArtistImage(artistId?: string, artistUrl?: string, artistName?: string) {
-  const key = artistId && artistId.startsWith('UC') ? artistId : artistUrl || artistName;
+function getCachedArtistImage(
+  artistId?: string,
+  artistUrl?: string,
+  artistName?: string,
+) {
+  const key =
+    artistId && artistId.startsWith('UC') ? artistId : artistUrl || artistName;
   if (!key) return null;
   return artistImageCache.get(key) || null;
 }
@@ -1131,10 +1204,16 @@ async function primeArtistImage(songInfo: {
   }
 }
 
-async function fetchArtistImage(artistUrl?: string, artistId?: string): Promise<string | null> {
+async function fetchArtistImage(
+  artistUrl?: string,
+  artistId?: string,
+): Promise<string | null> {
   if (!ipc) return null;
   try {
-    return await ipc.invoke('music-stats:artist-image', { artistUrl, artistId });
+    return await ipc.invoke('music-stats:artist-image', {
+      artistUrl,
+      artistId,
+    });
   } catch (error) {
     console.warn('[Music Stats] Failed to fetch artist image', error);
     return null;
