@@ -16,11 +16,13 @@
   animation: fadeIn 0.3s ease;
   color: var(--ytmusic-text-primary, #fff);
   overflow-y: auto;
+  font-size: 16px;
 }
 
 html.music-stats-overlay-open,
 body.music-stats-overlay-open {
   overflow: hidden !important;
+  font-size: 16px;
 }
 
 .music-stats-overlay.dashboard-view {
@@ -734,6 +736,21 @@ body.music-stats-overlay-open {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
+}
+
+.dashboard-summary {
+  display: flex;
+  gap: 20px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 20px;
+  scroll-behavior: smooth;
+}
+
+.dashboard-summary .dashboard-card {
+  flex: 1 0 240px;
+  min-width: 240px;
 }
 
 .dashboard-card {
