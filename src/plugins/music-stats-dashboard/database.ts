@@ -1,4 +1,8 @@
-import { PlayRecord, DailyAggregate, MonthlyAggregate } from './types';
+import {
+  type PlayRecord,
+  type DailyAggregate,
+  type MonthlyAggregate,
+} from './types';
 
 interface DatabaseSchema {
   playRecords: PlayRecord[];
@@ -26,9 +30,11 @@ export class StatsDatabase {
   async initialize() {
     try {
       // Lazy load Node.js modules
-      const fs = (await import('node:fs/promises')).default || (await import('node:fs/promises'));
+      const fs =
+        (await import('node:fs/promises')).default ||
+        (await import('node:fs/promises'));
       const fileData = await fs.readFile(this.dbPath, 'utf-8');
-      this.data = JSON.parse(fileData);
+      this.data = normalizeDatabaseData(JSON.parse(fileData));
     } catch {
       this.data = {
         playRecords: [],
@@ -48,12 +54,19 @@ export class StatsDatabase {
   private async save() {
     try {
       // Lazy load Node.js modules
-      const fs = (await import('node:fs/promises')).default || (await import('node:fs/promises'));
-      const path = (await import('node:path')).default || (await import('node:path'));
+      const fs =
+        (await import('node:fs/promises')).default ||
+        (await import('node:fs/promises'));
+      const path =
+        (await import('node:path')).default || (await import('node:path'));
 
       const dir = path.dirname(this.dbPath);
       await fs.mkdir(dir, { recursive: true });
-      await fs.writeFile(this.dbPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      await fs.writeFile(
+        this.dbPath,
+        JSON.stringify(this.data, null, 2),
+        'utf-8',
+      );
       this.isDirty = false;
     } catch (error) {
       console.error('[Music Stats] Failed to save database:', error);
@@ -72,10 +85,15 @@ export class StatsDatabase {
     this.markDirty();
   }
 
-  async getPlayRecords(startDate?: number, endDate?: number): Promise<PlayRecord[]> {
+  async getPlayRecords(
+    startDate?: number,
+    endDate?: number,
+  ): Promise<PlayRecord[]> {
     let records = this.data.playRecords;
     if (startDate && endDate) {
-      records = records.filter((r) => r.timestamp >= startDate && r.timestamp <= endDate);
+      records = records.filter(
+        (r) => r.timestamp >= startDate && r.timestamp <= endDate,
+      );
     } else if (startDate) {
       records = records.filter((r) => r.timestamp >= startDate);
     }
@@ -91,7 +109,10 @@ export class StatsDatabase {
     return this.data.dailyAggregates[date] || null;
   }
 
-  async saveMonthlyAggregate(yearMonth: string, data: MonthlyAggregate): Promise<void> {
+  async saveMonthlyAggregate(
+    yearMonth: string,
+    data: MonthlyAggregate,
+  ): Promise<void> {
     this.data.monthlyAggregates[yearMonth] = data;
     this.markDirty();
   }
@@ -107,22 +128,24 @@ export class StatsDatabase {
     this.markDirty();
   }
 
-  async getStreak(): Promise<{ lastListenDate: string; currentStreak: number } | null> {
+  async getStreak(): Promise<{
+    lastListenDate: string;
+    currentStreak: number;
+  } | null> {
     return this.data.streak;
   }
 
   async exportData(): Promise<string> {
-    return JSON.stringify({ version: 1, exportDate: Date.now(), ...this.data }, null, 2);
+    return JSON.stringify(
+      { version: 1, exportDate: Date.now(), ...this.data },
+      null,
+      2,
+    );
   }
 
   async importData(jsonData: string): Promise<void> {
-    const imported = JSON.parse(jsonData);
-    this.data = {
-      playRecords: imported.playRecords || [],
-      dailyAggregates: imported.dailyAggregates || {},
-      monthlyAggregates: imported.monthlyAggregates || {},
-      streak: imported.streak || null,
-    };
+    const imported = normalizeDatabaseData(JSON.parse(jsonData));
+    this.data = imported;
     this.markDirty();
     await this.save();
   }
@@ -135,4 +158,14 @@ export class StatsDatabase {
       await this.save();
     }
   }
+}
+
+function normalizeDatabaseData(input: unknown): DatabaseSchema {
+  const data = (input || {}) as Partial<DatabaseSchema>;
+  return {
+    playRecords: Array.isArray(data.playRecords) ? data.playRecords : [],
+    dailyAggregates: data.dailyAggregates || {},
+    monthlyAggregates: data.monthlyAggregates || {},
+    streak: data.streak || null,
+  };
 }
