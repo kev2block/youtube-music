@@ -76,8 +76,19 @@ export interface StatsData {
   firstSongEver?: { title: string; artist: string; date: string };
   firstSongThisYear?: { title: string; artist: string; date: string };
   firstSongThisMonth?: { title: string; artist: string; date: string };
-  monthlyObsessions: Array<{ yearMonth: string; artist: string; minutes: number }>;
-  skipStats: Array<{ songId: string; title: string; artist: string; skips: number; plays: number; imageUrl?: string }>;
+  monthlyObsessions: Array<{
+    yearMonth: string;
+    artist: string;
+    minutes: number;
+  }>;
+  skipStats: Array<{
+    songId: string;
+    title: string;
+    artist: string;
+    skips: number;
+    plays: number;
+    imageUrl?: string;
+  }>;
   skipRate: number;
 }
 
