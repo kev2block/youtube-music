@@ -27,12 +27,19 @@ export class StatsBackend {
   private syncTimer?: NodeJS.Timeout;
   private isSyncing = false;
   private getConfig: () => Promise<StatsConfig> | StatsConfig;
-  private setConfig: (conf: Partial<Omit<StatsConfig, 'enabled'>>) => Promise<void> | void;
+  private setConfig: (
+    conf: Partial<Omit<StatsConfig, 'enabled'>>,
+  ) => Promise<void> | void;
   private sessionAccessToken: string | null = null;
   private sessionAccessTokenExpiry = 0;
   private sessionRefreshToken: string | null = null;
 
-  constructor(context: { getConfig: () => Promise<StatsConfig> | StatsConfig; setConfig: (conf: Partial<Omit<StatsConfig, 'enabled'>>) => Promise<void> | void }) {
+  constructor(context: {
+    getConfig: () => Promise<StatsConfig> | StatsConfig;
+    setConfig: (
+      conf: Partial<Omit<StatsConfig, 'enabled'>>,
+    ) => Promise<void> | void;
+  }) {
     this.getConfig = context.getConfig;
     this.setConfig = context.setConfig;
   }
@@ -40,9 +47,13 @@ export class StatsBackend {
   async initialize() {
     // Dynamically import Node.js modules here so browser doesn't crash
     const { app, ipcMain, dialog, net, shell } = await import('electron');
-    const path = (await import('node:path')).default || (await import('node:path'));
-    const fs = (await import('node:fs/promises')).default || (await import('node:fs/promises'));
-    const crypto = (await import('node:crypto')).default || (await import('node:crypto'));
+    const path =
+      (await import('node:path')).default || (await import('node:path'));
+    const fs =
+      (await import('node:fs/promises')).default ||
+      (await import('node:fs/promises'));
+    const crypto =
+      (await import('node:crypto')).default || (await import('node:crypto'));
 
     // Dynamically import the Database class to break static dependency
     const { StatsDatabase } = await import('./database');
@@ -61,7 +72,14 @@ export class StatsBackend {
     }
   }
 
-  private setupIpcHandlers(ipcMain: IpcMain, dialog: any, fs: any, net: any, shell: any, crypto: any) {
+  private setupIpcHandlers(
+    ipcMain: IpcMain,
+    dialog: any,
+    fs: any,
+    net: any,
+    shell: any,
+    crypto: any,
+  ) {
     // CRITICAL FIX: Force remove handlers before adding them to prevent "Second handler" error on reload
     for (const channel of Object.values(IPC_CHANNELS)) {
       ipcMain.removeHandler(channel);
@@ -116,27 +134,30 @@ export class StatsBackend {
       return null;
     });
 
-    ipcMain.handle(IPC_CHANNELS.ARTIST_IMAGE, async (_, payload: { artistUrl?: string; artistId?: string }) => {
-      const urls: string[] = [];
-      if (payload.artistUrl) urls.push(payload.artistUrl);
-      if (payload.artistId) {
-        urls.push(`https://music.youtube.com/channel/${payload.artistId}`);
-        urls.push(`https://www.youtube.com/channel/${payload.artistId}`);
-      }
-
-      for (const url of urls) {
-        try {
-          const response = await net.fetch(url, { method: 'GET' });
-          if (!response.ok) continue;
-          const html = await response.text();
-          const imageUrl = extractArtistImage(html);
-          if (imageUrl) return imageUrl;
-        } catch (error) {
-          console.warn('[Music Stats] Failed to fetch artist image', error);
+    ipcMain.handle(
+      IPC_CHANNELS.ARTIST_IMAGE,
+      async (_, payload: { artistUrl?: string; artistId?: string }) => {
+        const urls: string[] = [];
+        if (payload.artistUrl) urls.push(payload.artistUrl);
+        if (payload.artistId) {
+          urls.push(`https://music.youtube.com/channel/${payload.artistId}`);
+          urls.push(`https://www.youtube.com/channel/${payload.artistId}`);
         }
-      }
-      return null;
-    });
+
+        for (const url of urls) {
+          try {
+            const response = await net.fetch(url, { method: 'GET' });
+            if (!response.ok) continue;
+            const html = await response.text();
+            const imageUrl = extractArtistImage(html);
+            if (imageUrl) return imageUrl;
+          } catch (error) {
+            console.warn('[Music Stats] Failed to fetch artist image', error);
+          }
+        }
+        return null;
+      },
+    );
 
     ipcMain.handle(IPC_CHANNELS.DRIVE_STATUS, async () => {
       const config = await this.getConfig();
@@ -171,19 +192,25 @@ export class StatsBackend {
   }
 
   private startAggregationTimer() {
-    this.aggregationTimer = setInterval(() => {
-      this.aggregateDailyStats().catch(console.error);
-    }, 60 * 60 * 1000);
+    this.aggregationTimer = setInterval(
+      () => {
+        this.aggregateDailyStats().catch(console.error);
+      },
+      60 * 60 * 1000,
+    );
     this.aggregateDailyStats().catch(console.error);
   }
 
   private startSyncTimer() {
     if (this.syncTimer) return;
-    this.syncTimer = setInterval(() => {
-      this.getConfig()
-        .then((config) => this.syncDriveNow(config, null, null))
-        .catch(console.error);
-    }, 10 * 60 * 1000);
+    this.syncTimer = setInterval(
+      () => {
+        Promise.resolve(this.getConfig())
+          .then((config) => this.syncDriveNow(config, null, null))
+          .catch(console.error);
+      },
+      10 * 60 * 1000,
+    );
   }
 
   private stopSyncTimer() {
@@ -212,21 +239,21 @@ export class StatsBackend {
 
     const songMap = new Map<string, number>();
     const artistMap = new Map<string, number>();
-    const genreMap = new Map<string, number>();
     const hourlyMap = new Array(24).fill(0);
     let skipCount = 0;
 
     for (const record of records) {
-      const minutes = record.durationListened / 60;
       songMap.set(record.songId, (songMap.get(record.songId) || 0) + 1);
       artistMap.set(record.artistId, (artistMap.get(record.artistId) || 0) + 1);
-      if (record.genre) genreMap.set(record.genre, (genreMap.get(record.genre) || 0) + minutes);
       const hour = new Date(record.timestamp).getHours();
       hourlyMap[hour] += 1;
       if (record.skipped) skipCount++;
     }
 
-    const totalMinutes = records.reduce((sum, r) => sum + r.durationListened / 60, 0);
+    const totalMinutes = records.reduce(
+      (sum, r) => sum + r.durationListened / 60,
+      0,
+    );
 
     const topSongs = Array.from(songMap.entries())
       .sort((a, b) => b[1] - a[1])
@@ -245,9 +272,6 @@ export class StatsBackend {
       });
 
     const genreBreakdown: Record<string, number> = {};
-    for (const [genre, minutes] of genreMap) {
-      genreBreakdown[genre] = Math.round(minutes * 10) / 10;
-    }
 
     await this.db.saveDailyAggregate(today, {
       date: today,
@@ -275,7 +299,9 @@ export class StatsBackend {
 
     const lastDate = new Date(streakData.lastListenDate);
     const currentDate = new Date(today);
-    const diffDays = Math.floor((currentDate.getTime() - lastDate.getTime()) / (24 * 60 * 60 * 1000));
+    const diffDays = Math.floor(
+      (currentDate.getTime() - lastDate.getTime()) / (24 * 60 * 60 * 1000),
+    );
 
     if (diffDays === 1) {
       await this.db.updateStreak(today, streakData.currentStreak + 1);
@@ -289,14 +315,21 @@ export class StatsBackend {
     const allRecords = await this.db.getPlayRecords();
 
     const totalMinutes = Math.round(
-      allRecords.reduce((sum, r) => sum + r.durationListened / 60, 0)
+      allRecords.reduce((sum, r) => sum + r.durationListened / 60, 0),
     );
-    const isQualifiedPlay = (record: PlayRecord) => record.durationListened >= 30;
+    const isQualifiedPlay = (record: PlayRecord) =>
+      record.durationListened >= 30;
     const totalSongs = allRecords.filter(isQualifiedPlay).length;
 
     const songPlayMap = new Map<
       string,
-      { title: string; artist: string; plays: number; minutes: number; imageUrl?: string }
+      {
+        title: string;
+        artist: string;
+        plays: number;
+        minutes: number;
+        imageUrl?: string;
+      }
     >();
     const artistPlayMap = new Map<
       string,
@@ -307,7 +340,13 @@ export class StatsBackend {
     const monthlyArtists = new Map<string, Map<string, number>>();
     const skipMap = new Map<
       string,
-      { title: string; artist: string; skips: number; plays: number; imageUrl?: string }
+      {
+        title: string;
+        artist: string;
+        skips: number;
+        plays: number;
+        imageUrl?: string;
+      }
     >();
 
     for (const record of allRecords) {
@@ -353,13 +392,20 @@ export class StatsBackend {
 
       // Daily
       const date = new Date(record.timestamp).toISOString().split('T')[0];
-      dailyMap.set(date, (dailyMap.get(date) || 0) + record.durationListened / 60);
+      dailyMap.set(
+        date,
+        (dailyMap.get(date) || 0) + record.durationListened / 60,
+      );
 
       // Monthly Obsessions
       const yearMonth = new Date(record.timestamp).toISOString().slice(0, 7);
-      if (!monthlyArtists.has(yearMonth)) monthlyArtists.set(yearMonth, new Map());
+      if (!monthlyArtists.has(yearMonth))
+        monthlyArtists.set(yearMonth, new Map());
       const monthMap = monthlyArtists.get(yearMonth)!;
-      monthMap.set(record.artistId, (monthMap.get(record.artistId) || 0) + record.durationListened / 60);
+      monthMap.set(
+        record.artistId,
+        (monthMap.get(record.artistId) || 0) + record.durationListened / 60,
+      );
 
       // Skips
       const skipExisting = skipMap.get(record.songId);
@@ -381,7 +427,10 @@ export class StatsBackend {
     }
 
     const coverUrl = (id: string, imageUrl?: string) =>
-      imageUrl || (/^[a-zA-Z0-9_-]{11}$/.test(id) ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : undefined);
+      imageUrl ||
+      (/^[a-zA-Z0-9_-]{11}$/.test(id)
+        ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+        : undefined);
 
     const topSongs = Array.from(songPlayMap.entries())
       .sort((a, b) => b[1].plays - a[1].plays)
@@ -417,9 +466,17 @@ export class StatsBackend {
 
     const monthlyObsessions = Array.from(monthlyArtists.entries())
       .map(([yearMonth, artistMap]) => {
-        const topArtist = Array.from(artistMap.entries()).sort((a, b) => b[1] - a[1])[0];
-        const artistName = allRecords.find((r) => r.artistId === topArtist[0])?.artistName || 'Unknown';
-        return { yearMonth, artist: artistName, minutes: Math.round(topArtist[1]) };
+        const topArtist = Array.from(artistMap.entries()).sort(
+          (a, b) => b[1] - a[1],
+        )[0];
+        const artistName =
+          allRecords.find((r) => r.artistId === topArtist[0])?.artistName ||
+          'Unknown';
+        return {
+          yearMonth,
+          artist: artistName,
+          minutes: Math.round(topArtist[1]),
+        };
       })
       .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
 
@@ -436,29 +493,45 @@ export class StatsBackend {
         imageUrl: data.imageUrl,
       }));
 
-    const sortedRecords = [...allRecords].sort((a, b) => a.timestamp - b.timestamp);
+    const sortedRecords = [...allRecords].sort(
+      (a, b) => a.timestamp - b.timestamp,
+    );
     const streakData = await this.db.getStreak();
     const currentYear = new Date().getFullYear();
     const firstThisYear = sortedRecords.find(
-      (r) => new Date(r.timestamp).getFullYear() === currentYear
+      (r) => new Date(r.timestamp).getFullYear() === currentYear,
     );
     const totalSkips = allRecords.filter((r) => r.skipped).length;
-    const skipRate = Math.min(100, Math.round((totalSkips / Math.max(1, allRecords.length)) * 100));
+    const skipRate = Math.min(
+      100,
+      Math.round((totalSkips / Math.max(1, allRecords.length)) * 100),
+    );
 
     return {
       totalMinutes,
       totalSongs,
       topSongs,
       topArtists,
-      anthem: topSongs[0] ? { id: topSongs[0].id, title: topSongs[0].title, artist: topSongs[0].artist, plays: topSongs[0].plays } : undefined,
+      anthem: topSongs[0]
+        ? {
+            id: topSongs[0].id,
+            title: topSongs[0].title,
+            artist: topSongs[0].artist,
+            plays: topSongs[0].plays,
+          }
+        : undefined,
       peakListeningDay,
       listeningClock: listeningClock.map((m) => Math.round(m)),
       currentStreak: streakData?.currentStreak || 0,
-      firstSongEver: sortedRecords[0] ? {
-        title: sortedRecords[0].songTitle,
-        artist: sortedRecords[0].artistName,
-        date: new Date(sortedRecords[0].timestamp).toISOString().split('T')[0],
-      } : undefined,
+      firstSongEver: sortedRecords[0]
+        ? {
+            title: sortedRecords[0].songTitle,
+            artist: sortedRecords[0].artistName,
+            date: new Date(sortedRecords[0].timestamp)
+              .toISOString()
+              .split('T')[0],
+          }
+        : undefined,
       firstSongThisYear: firstThisYear
         ? {
             title: firstThisYear.songTitle,
@@ -493,157 +566,191 @@ export class StatsBackend {
     };
   }
 
-  private async startDriveAuth(config: StatsConfig, dialog: any, shell: any, net: any) {
+  private async startDriveAuth(
+    config: StatsConfig,
+    dialog: any,
+    shell: any,
+    net: any,
+  ) {
     if (!config.cloudSyncClientId) {
       return { ok: false, message: 'Missing Google OAuth Client ID.' };
     }
 
-    const http = (await import('node:http')).default || (await import('node:http'));
-    const crypto = (await import('node:crypto')).default || (await import('node:crypto'));
+    const http =
+      (await import('node:http')).default || (await import('node:http'));
+    const crypto =
+      (await import('node:crypto')).default || (await import('node:crypto'));
     const codeVerifier = base64UrlEncode(crypto.randomBytes(32));
     const codeChallenge = base64UrlEncode(
       crypto.createHash('sha256').update(codeVerifier).digest(),
     );
 
-    const result = await new Promise<{ ok: boolean; message: string }>((resolve) => {
-      let redirectUri = '';
-      const server = http.createServer(async (req: any, res: any) => {
-        if (!req?.url?.startsWith('/oauth2callback')) {
-          res.writeHead(404);
-          res.end();
-          return;
-        }
+    const result = await new Promise<{ ok: boolean; message: string }>(
+      (resolve) => {
+        let redirectUri = '';
+        const server = http.createServer(async (req: any, res: any) => {
+          if (!req?.url?.startsWith('/oauth2callback')) {
+            res.writeHead(404);
+            res.end();
+            return;
+          }
 
-        const url = new URL(req.url, 'http://127.0.0.1');
-        const code = url.searchParams.get('code');
-        const error = url.searchParams.get('error');
+          const url = new URL(req.url, 'http://127.0.0.1');
+          const code = url.searchParams.get('code');
+          const error = url.searchParams.get('error');
 
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end('<h3>You can close this window now.</h3>');
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<h3>You can close this window now.</h3>');
 
-        server.close();
+          server.close();
 
-        if (!code || error) {
-          resolve({ ok: false, message: 'Google authorization was cancelled or failed.' });
-          return;
-        }
+          if (!code || error) {
+            resolve({
+              ok: false,
+              message: 'Google authorization was cancelled or failed.',
+            });
+            return;
+          }
 
-        try {
-            const tokenResponse = await net.fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              client_id: config.cloudSyncClientId,
-                client_secret: config.cloudSyncClientSecret || '',
-              grant_type: 'authorization_code',
-              code,
-              code_verifier: codeVerifier,
-              redirect_uri: redirectUri,
-            }).toString(),
-          });
+          try {
+            const tokenResponse = await net.fetch(
+              'https://oauth2.googleapis.com/token',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  client_id: config.cloudSyncClientId,
+                  client_secret: config.cloudSyncClientSecret || '',
+                  grant_type: 'authorization_code',
+                  code,
+                  code_verifier: codeVerifier,
+                  redirect_uri: redirectUri,
+                }).toString(),
+              },
+            );
 
-          if (!tokenResponse.ok) {
-            const errorText = await safeReadResponse(tokenResponse);
-            const message = `Failed to exchange token. ${errorText || ''}`.trim();
+            if (!tokenResponse.ok) {
+              const errorText = await safeReadResponse(tokenResponse);
+              const message =
+                `Failed to exchange token. ${errorText || ''}`.trim();
+              await this.setConfig({
+                cloudSyncLastError: message,
+              });
+              resolve({ ok: false, message });
+              return;
+            }
+
+            const tokenJson = await tokenResponse.json();
+            this.sessionAccessToken = tokenJson.access_token || null;
+            this.sessionAccessTokenExpiry =
+              Date.now() + (tokenJson.expires_in ?? 3600) * 1000 - 60000;
+            this.sessionRefreshToken = tokenJson.refresh_token || null;
+
+            if (!tokenJson.refresh_token) {
+              await this.setConfig({
+                cloudSyncEnabled: true,
+                cloudSyncAccessToken: tokenJson.access_token || '',
+                cloudSyncAccessTokenExpiry:
+                  Date.now() + (tokenJson.expires_in ?? 3600) * 1000 - 60000,
+                cloudSyncLastError:
+                  'No refresh token returned. You will need to re-login after restart. Revoke access and re-consent to fix.',
+              });
+              resolve({
+                ok: false,
+                message:
+                  'Logged in without refresh token. You will need to re-login after restart.',
+              });
+              return;
+            }
+
+            await this.setConfig({
+              cloudSyncEnabled: true,
+              cloudSyncRefreshToken: tokenJson.refresh_token,
+              cloudSyncAccessToken: tokenJson.access_token,
+              cloudSyncAccessTokenExpiry:
+                Date.now() + (tokenJson.expires_in ?? 3600) * 1000 - 60000,
+              cloudSyncLastError: '',
+            });
+            this.startSyncTimer();
+
+            resolve({ ok: true, message: 'Google Drive connected.' });
+          } catch (err) {
+            const message =
+              `Google authorization failed. ${(err as Error)?.message || ''}`.trim();
             await this.setConfig({
               cloudSyncLastError: message,
             });
             resolve({ ok: false, message });
-            return;
           }
-
-          const tokenJson = await tokenResponse.json();
-          this.sessionAccessToken = tokenJson.access_token || null;
-          this.sessionAccessTokenExpiry = Date.now() + (tokenJson.expires_in ?? 3600) * 1000 - 60000;
-          this.sessionRefreshToken = tokenJson.refresh_token || null;
-
-          if (!tokenJson.refresh_token) {
-            await this.setConfig({
-              cloudSyncEnabled: true,
-              cloudSyncAccessToken: tokenJson.access_token || '',
-              cloudSyncAccessTokenExpiry: Date.now() + (tokenJson.expires_in ?? 3600) * 1000 - 60000,
-              cloudSyncLastError:
-                'No refresh token returned. You will need to re-login after restart. Revoke access and re-consent to fix.',
-            });
-            resolve({
-              ok: false,
-              message:
-                'Logged in without refresh token. You will need to re-login after restart.',
-            });
-            return;
-          }
-
-          await this.setConfig({
-            cloudSyncEnabled: true,
-            cloudSyncRefreshToken: tokenJson.refresh_token,
-            cloudSyncAccessToken: tokenJson.access_token,
-            cloudSyncAccessTokenExpiry: Date.now() + (tokenJson.expires_in ?? 3600) * 1000 - 60000,
-            cloudSyncLastError: '',
-          });
-          this.startSyncTimer();
-
-          resolve({ ok: true, message: 'Google Drive connected.' });
-        } catch (err) {
-          const message = `Google authorization failed. ${(err as Error)?.message || ''}`.trim();
-          await this.setConfig({
-            cloudSyncLastError: message,
-          });
-          resolve({ ok: false, message });
-        }
-      });
-
-      server.listen(0, '127.0.0.1', async () => {
-        const address = server.address() as { port?: number } | null;
-        const port = address?.port;
-        if (!port) {
-          server.close();
-          resolve({ ok: false, message: 'Failed to start local callback server.' });
-          return;
-        }
-        redirectUri = `http://127.0.0.1:${port}/oauth2callback`;
-
-        const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-        authUrl.searchParams.set('client_id', config.cloudSyncClientId);
-        authUrl.searchParams.set('redirect_uri', redirectUri);
-        authUrl.searchParams.set('response_type', 'code');
-        authUrl.searchParams.set('scope', DRIVE_SCOPE);
-        authUrl.searchParams.set('code_challenge', codeChallenge);
-        authUrl.searchParams.set('code_challenge_method', 'S256');
-        authUrl.searchParams.set('access_type', 'offline');
-        authUrl.searchParams.set('prompt', 'consent');
-
-        const dialogResult = await dialog.showMessageBox({
-          type: 'info',
-          title: 'Google Drive Sync',
-          message: 'Authorize Google Drive Sync',
-          detail: 'A browser window will open to sign in. After approving, you can close it.',
-          buttons: ['Open Google', 'Cancel'],
-          defaultId: 0,
-          cancelId: 1,
         });
 
-        if (dialogResult.response === 1) {
-          server.close();
-          await this.setConfig({
-            cloudSyncLastError: 'Google authorization cancelled.',
-          });
-          resolve({ ok: false, message: 'Google authorization cancelled.' });
-          return;
-        }
-
-        shell.openExternal(authUrl.toString()).catch(console.error);
-
-        setTimeout(async () => {
-          try {
+        server.listen(0, '127.0.0.1', async () => {
+          const address = server.address() as { port?: number } | null;
+          const port = address?.port;
+          if (!port) {
             server.close();
-          } catch {}
-          await this.setConfig({
-            cloudSyncLastError: 'Google authorization timed out.',
+            resolve({
+              ok: false,
+              message: 'Failed to start local callback server.',
+            });
+            return;
+          }
+          redirectUri = `http://127.0.0.1:${port}/oauth2callback`;
+
+          const authUrl = new URL(
+            'https://accounts.google.com/o/oauth2/v2/auth',
+          );
+          authUrl.searchParams.set('client_id', config.cloudSyncClientId);
+          authUrl.searchParams.set('redirect_uri', redirectUri);
+          authUrl.searchParams.set('response_type', 'code');
+          authUrl.searchParams.set('scope', DRIVE_SCOPE);
+          authUrl.searchParams.set('code_challenge', codeChallenge);
+          authUrl.searchParams.set('code_challenge_method', 'S256');
+          authUrl.searchParams.set('access_type', 'offline');
+          authUrl.searchParams.set('prompt', 'consent');
+
+          const dialogResult = await dialog.showMessageBox({
+            type: 'info',
+            title: 'Google Drive Sync',
+            message: 'Authorize Google Drive Sync',
+            detail:
+              'A browser window will open to sign in. After approving, you can close it.',
+            buttons: ['Open Google', 'Cancel'],
+            defaultId: 0,
+            cancelId: 1,
           });
-          resolve({ ok: false, message: 'Google authorization timed out.' });
-        }, 5 * 60 * 1000);
-      });
-    });
+
+          if (dialogResult.response === 1) {
+            server.close();
+            await this.setConfig({
+              cloudSyncLastError: 'Google authorization cancelled.',
+            });
+            resolve({ ok: false, message: 'Google authorization cancelled.' });
+            return;
+          }
+
+          shell.openExternal(authUrl.toString()).catch(console.error);
+
+          setTimeout(
+            async () => {
+              try {
+                server.close();
+              } catch {}
+              await this.setConfig({
+                cloudSyncLastError: 'Google authorization timed out.',
+              });
+              resolve({
+                ok: false,
+                message: 'Google authorization timed out.',
+              });
+            },
+            5 * 60 * 1000,
+          );
+        });
+      },
+    );
 
     return result;
   }
@@ -658,15 +765,22 @@ export class StatsBackend {
       return config.cloudSyncAccessToken;
     }
 
-    if (this.sessionAccessToken && this.sessionAccessTokenExpiry > now + 60000) {
+    if (
+      this.sessionAccessToken &&
+      this.sessionAccessTokenExpiry > now + 60000
+    ) {
       return this.sessionAccessToken;
     }
 
-    if (!config.cloudSyncClientId || (!config.cloudSyncRefreshToken && !this.sessionRefreshToken)) {
+    if (
+      !config.cloudSyncClientId ||
+      (!config.cloudSyncRefreshToken && !this.sessionRefreshToken)
+    ) {
       throw new Error('Missing refresh token. Reconnect Google Drive.');
     }
 
-    const refreshToken = config.cloudSyncRefreshToken || this.sessionRefreshToken;
+    const refreshToken =
+      config.cloudSyncRefreshToken || this.sessionRefreshToken;
 
     const body = new URLSearchParams({
       client_id: config.cloudSyncClientId,
@@ -683,7 +797,9 @@ export class StatsBackend {
 
     if (!response.ok) {
       const errorText = await safeReadResponse(response);
-      throw new Error(`Failed to refresh Google token. ${errorText || ''}`.trim());
+      throw new Error(
+        `Failed to refresh Google token. ${errorText || ''}`.trim(),
+      );
     }
 
     const json = await response.json();
@@ -691,11 +807,13 @@ export class StatsBackend {
     if (!accessToken) throw new Error('Missing access token.');
 
     this.sessionAccessToken = accessToken;
-    this.sessionAccessTokenExpiry = Date.now() + (json.expires_in ?? 3600) * 1000 - 60000;
+    this.sessionAccessTokenExpiry =
+      Date.now() + (json.expires_in ?? 3600) * 1000 - 60000;
 
     await this.setConfig({
       cloudSyncAccessToken: accessToken,
-      cloudSyncAccessTokenExpiry: Date.now() + (json.expires_in ?? 3600) * 1000 - 60000,
+      cloudSyncAccessTokenExpiry:
+        Date.now() + (json.expires_in ?? 3600) * 1000 - 60000,
       cloudSyncLastError: '',
     });
 
@@ -703,13 +821,19 @@ export class StatsBackend {
   }
 
   private async syncDriveNow(config: StatsConfig, net: any, crypto: any) {
-    if (this.isSyncing) return { ok: false, message: 'Sync already in progress.' };
+    if (this.isSyncing)
+      return { ok: false, message: 'Sync already in progress.' };
     if (!this.db) return { ok: false, message: 'Database not ready.' };
-    if (!config.cloudSyncEnabled) return { ok: false, message: 'Cloud sync is disabled.' };
+    if (!config.cloudSyncEnabled)
+      return { ok: false, message: 'Cloud sync is disabled.' };
     if (!config.cloudSyncClientId) {
       return { ok: false, message: 'Connect Google Drive first.' };
     }
-    if (!config.cloudSyncRefreshToken && !config.cloudSyncAccessToken && !this.sessionAccessToken) {
+    if (
+      !config.cloudSyncRefreshToken &&
+      !config.cloudSyncAccessToken &&
+      !this.sessionAccessToken
+    ) {
       return { ok: false, message: 'Connect Google Drive first.' };
     }
 
@@ -718,7 +842,9 @@ export class StatsBackend {
       if (!net || !crypto) {
         const electron = await import('electron');
         net = electron.net;
-        crypto = (await import('node:crypto')).default || (await import('node:crypto'));
+        crypto =
+          (await import('node:crypto')).default ||
+          (await import('node:crypto'));
       }
 
       const accessToken = await this.ensureAccessToken(config, net);
@@ -810,7 +936,9 @@ export class StatsBackend {
   }
 
   private async findDriveFile(accessToken: string, net: any) {
-    const query = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+    const query = encodeURIComponent(
+      `name='${DRIVE_FILE_NAME}' and trashed=false`,
+    );
     const url = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,name,modifiedTime)&q=${query}`;
     const response = await net.fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -820,7 +948,11 @@ export class StatsBackend {
     return json?.files?.[0] || null;
   }
 
-  private async downloadDriveFile(accessToken: string, net: any, fileId: string): Promise<string | null> {
+  private async downloadDriveFile(
+    accessToken: string,
+    net: any,
+    fileId: string,
+  ): Promise<string | null> {
     const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
     const response = await net.fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -829,62 +961,94 @@ export class StatsBackend {
     return await response.text();
   }
 
-  private async createDriveFile(accessToken: string, net: any, content: string) {
+  private async createDriveFile(
+    accessToken: string,
+    net: any,
+    content: string,
+  ) {
     const metadata = { name: DRIVE_FILE_NAME, parents: ['appDataFolder'] };
     const body = buildMultipartBody(metadata, content);
-    const response = await net.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': `multipart/related; boundary=${body.boundary}`,
+    const response = await net.fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary=${body.boundary}`,
+        },
+        body: body.payload,
       },
-      body: body.payload,
-    });
+    );
     if (!response.ok) throw new Error('Failed to create Drive file.');
     return await response.json();
   }
 
-  private async uploadDriveFile(accessToken: string, net: any, fileId: string, content: string) {
+  private async uploadDriveFile(
+    accessToken: string,
+    net: any,
+    fileId: string,
+    content: string,
+  ) {
     const metadata = { name: DRIVE_FILE_NAME };
     const body = buildMultipartBody(metadata, content);
-    const response = await net.fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': `multipart/related; boundary=${body.boundary}`,
+    const response = await net.fetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary=${body.boundary}`,
+        },
+        body: body.payload,
       },
-      body: body.payload,
-    });
+    );
     if (!response.ok) throw new Error('Failed to upload Drive file.');
   }
 }
 
 function parseExport(jsonData: string): { exportDate: number; data: any } {
   try {
-    const parsed = JSON.parse(jsonData);
+    const parsed = JSON.parse(jsonData) as {
+      exportDate?: number;
+    } & Record<string, unknown>;
     return { exportDate: parsed.exportDate || 0, data: parsed };
   } catch {
-    return { exportDate: 0, data: { playRecords: [], dailyAggregates: {}, monthlyAggregates: {}, streak: null } };
+    return {
+      exportDate: 0,
+      data: {
+        playRecords: [],
+        dailyAggregates: {},
+        monthlyAggregates: {},
+        streak: null,
+      },
+    };
   }
 }
 
 function mergeExports(local: { data: any }, remote: { data: any }) {
-  const playRecords = [...(local.data.playRecords || []), ...(remote.data.playRecords || [])];
+  const playRecords = [
+    ...(local.data.playRecords || []),
+    ...(remote.data.playRecords || []),
+  ];
   const recordMap = new Map<string, any>();
   for (const record of playRecords) {
     const key = `${record.songId}|${record.artistId}|${record.timestamp}|${record.durationListened}|${record.totalDuration}`;
     if (!recordMap.has(key)) recordMap.set(key, record);
   }
 
-  const mergeAggregate = (left: Record<string, any>, right: Record<string, any>) => {
+  const mergeAggregate = (
+    left: Record<string, any>,
+    right: Record<string, any>,
+  ) => {
     const result: Record<string, any> = { ...left };
     for (const [key, value] of Object.entries(right || {})) {
       if (!result[key]) {
         result[key] = value;
         continue;
       }
-      if ((value as any).totalMinutes && (result[key] as any).totalMinutes) {
-        result[key] = (value as any).totalMinutes > (result[key] as any).totalMinutes ? value : result[key];
+      if (value.totalMinutes && result[key].totalMinutes) {
+        result[key] =
+          value.totalMinutes > result[key].totalMinutes ? value : result[key];
       }
     }
     return result;
@@ -902,8 +1066,14 @@ function mergeExports(local: { data: any }, remote: { data: any }) {
     version: 1,
     exportDate: Date.now(),
     playRecords: Array.from(recordMap.values()),
-    dailyAggregates: mergeAggregate(local.data.dailyAggregates || {}, remote.data.dailyAggregates || {}),
-    monthlyAggregates: mergeAggregate(local.data.monthlyAggregates || {}, remote.data.monthlyAggregates || {}),
+    dailyAggregates: mergeAggregate(
+      local.data.dailyAggregates || {},
+      remote.data.dailyAggregates || {},
+    ),
+    monthlyAggregates: mergeAggregate(
+      local.data.monthlyAggregates || {},
+      remote.data.monthlyAggregates || {},
+    ),
     streak,
   };
 }
@@ -944,12 +1114,12 @@ async function safeReadResponse(response: { text: () => Promise<string> }) {
 
 function extractArtistImage(html: string): string | null {
   const ogMatch = html.match(
-    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/i
+    /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/i,
   );
   if (ogMatch?.[1]) return ogMatch[1];
 
   const twitterMatch = html.match(
-    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["'][^>]*>/i
+    /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["'][^>]*>/i,
   );
   if (twitterMatch?.[1]) return twitterMatch[1];
 
